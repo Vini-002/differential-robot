@@ -49,29 +49,20 @@ class DifferentialRobot:
             if transpose:
                 state = state.T
             return state
-        else: 
+        else:
             return self.x, self.y, self.orientation, self.linear_speed, self.angular_velocity
 
     def line_sensor(self):
-        if self.orientation == 0:
-            return self.y
-        else:
-            return np.clip(np.tan(self.orientation)*(1 + self.y /np.sin(self.orientation)), -2, 2)
-    
-    def sensor_x(self):
-        """
-        Calculates the x position of the intercetion of the line sensor and the line
-        """
-        d_sq = 1 + (self.line_sensor())**2
-        return self.x + np.sqrt(d_sq + self.y**2)
+        return np.clip(np.tan(self.orientation)*(0.1 + self.y /np.sin(self.orientation)), -2, 2)
+        
 
-    def step_wheel(self, w_left, w_right):
+    def step_wheel(self, des_left, des_right):
         """
         Receive left and right wheels speed [rad/s] and update robot's state
         :param w_left: left wheel speed [rad/s]
         :param w_right: right wheel speed [rad/s]
         """
-        self.w_left = w_left
+        self.w_left = compute(des_left)
         self.w_right = w_right
 
         # first update orientation
@@ -85,22 +76,6 @@ class DifferentialRobot:
         self.y += self.linear_speed * np.sin(self.orientation) * \
                   self.sample_time
 
-        return None
-    
-
-
-    def move(self, theta):
-        d = np.sqrt(1 + (self.line_sensor())**2)
-        self.y = np.sin(np.arcsin(self.y/d) + theta) * d
-        self.orientation -= theta
-        return None
-    
-    def d_speed(self, w_left, w_right):
-        self.d_left = w_left
-        self.d_right = w_right
-        self.w_left = self.acc(self.d_left, self.w_left)
-        self.w_right = self.acc(self.d_right, self.w_right)
-        self.step_wheel(self.w_left, self.w_right)
         return None
 
     def step_acc(self, a_left, a_right):
@@ -150,17 +125,8 @@ class DifferentialRobot:
         return (self.wheel_diameter / self.axis_distance) * \
                (self.w_right - self.w_left)
     
-    def wheel_acc(self, acc, w):
-        """
-        Returns wheel's angular acceleration in rad/s²
-        """
-        return (acc * (self.wheel_max_speed * (acc/self.wheel_max_acc) - w))
-    
-    def acc(self, des_spd, spd):
-        if np.abs(des_spd - spd) < self.wheel_max_acc:
-            spd = des_spd
+    def compute(self, speed, desired):
+        if (np.abs(speed - desired) <= self.wheel_max_acc):
+            return desired
         else:
-            spd += (self.wheel_max_acc)*np.sign(des_spd - spd)
-        return np.clip(spd, -self.wheel_max_speed, self.wheel_max_speed)
-        
-        
+            return speed + self.wheel_max_acc
